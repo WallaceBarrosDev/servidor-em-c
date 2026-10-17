@@ -18,6 +18,13 @@ void criarErro(Status *status, const char *message) {
   status->error_code = errno;
 }
 
+bool limparSocket(int socketd) {
+  if(socketd < 0)
+    return true;
+  
+  return close(socketd) >= 0;
+}
+
 Status lib_api(int port) {
   Status status = {
     .has_error = false,
@@ -25,10 +32,11 @@ Status lib_api(int port) {
     .message = "socket criado e bind atribuido",
   };
 
-  int socket_desc = -1;
+  int socketd = -1;
+  int client_socketd = -1;
 
-  socket_desc = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if(socket_desc < 0) {
+  socketd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if(socketd < 0) {
     criarErro(&status, "falha ao criar socket");
     goto cleanup;
   }
@@ -39,16 +47,37 @@ Status lib_api(int port) {
     .sin_addr.s_addr = htonl(INADDR_LOOPBACK)
   };
 
-  int res = bind(socket_desc, (struct sockaddr *) &ip_porta, sizeof(ip_porta));
-  if(res < 0) criarErro(&status, "falha ao fazer o bind"); 
-  
+  int res = bind(socketd, (struct sockaddr *) &ip_porta, sizeof(ip_porta));
+  if(res < 0) {
+    criarErro(&status, "falha ao fazer o bind");
+    goto cleanup;
+  }
+
+  res = listen(socketd, 10);
+  if(res < 0) {
+    criarErro(&status, "falha ao deixar o socket em listen");
+    goto cleanup;
+  }
+
+  printf("esperando conexão em http://localhost:%d\n", port);
+  client_socketd = accept(socketd, NULL, NULL);
+  if(client_socketd < 0) {
+    criarErro(&status, "falha ao aceitar o socket do cliente");
+    goto cleanup;
+  }
+
+  status.message = "conexão foi feita";
+
 cleanup:
-  if(socket_desc >= 0)
-    if(close(socket_desc) < 0 && status.error_code == 0)
-      criarErro(&status, "falha ao fechar o socket");
+  if(!limparSocket(socketd) && status.error_code == 0)
+    criarErro(&status, "falha ao fechar o socket");
+
+  if(!limparSocket(client_socketd) && status.error_code == 0)
+    criarErro(&status, "falha ao fechar o socket do cliente");
 
   return status;
 }
+
 
 int main(void) {
   Status status = lib_api(8080);
