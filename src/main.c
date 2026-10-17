@@ -1,10 +1,14 @@
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+
+#define SIZE_BUFFER 4096
 
 typedef struct {
   bool has_error;
@@ -25,11 +29,36 @@ bool limparSocket(int socketd) {
   return close(socketd) >= 0;
 }
 
-Status lib_api(int port) {
+Status creatBufferResponse(char *buffer_res, size_t tamanho, char *html) {
   Status status = {
     .has_error = false,
     .error_code = 0,
-    .message = "socket criado e bind atribuido",
+    .message = "buffer criado"
+  };
+
+  int res = snprintf(buffer_res, tamanho,
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/html; charset=utf-8\r\n"
+    "Connection: close\r\n"
+    "\r\n"
+    "%s",
+    html);
+    
+  if (res < 0) criarErro(&status, "Erro ao criar o buffer de resposta");
+  else if ((size_t)res >= tamanho) criarErro(&status, "Buffer de resposta maior que o size");
+
+  return status;
+}
+
+Status lib_api(int port) {
+  char buffer_req[SIZE_BUFFER];
+  char buffer_res[SIZE_BUFFER];
+  char *html = "<h1>Olá mundo !</h1>";
+
+  Status status = {
+    .has_error = false,
+    .error_code = 0,
+    .message = "socket criado, bind atribuido, resposta recebida e requisição enviada",
   };
 
   int socketd = -1;
@@ -66,7 +95,37 @@ Status lib_api(int port) {
     goto cleanup;
   }
 
-  status.message = "conexão foi feita";
+  ssize_t bytes_lidos = read(client_socketd, buffer_req, SIZE_BUFFER - 1);
+  
+  if(bytes_lidos < 0) {
+    criarErro(&status, "falha ao ler a requisição do cliente");
+    goto cleanup;
+  }
+
+  if(bytes_lidos == 0) {
+    status.message = "cliente encerrou a conexão sem enviar dados";
+    goto cleanup;
+  }
+  
+  buffer_req[bytes_lidos] = '\0';
+
+  Status s = creatBufferResponse(buffer_res, SIZE_BUFFER, html);
+  if(s.has_error) {
+    status = s;
+    goto cleanup;
+  }
+
+  ssize_t bytes_escritos = write(client_socketd, buffer_res, strlen(buffer_res));
+  
+  if(bytes_escritos < 0) {
+    criarErro(&status, "falha ao enviar a resposta ao cliente");
+    goto cleanup;
+  }
+
+  if(bytes_escritos == 0) {
+    status.message = "Aviso: respota enviada, mas nenhum dado foi escrito na resposta";
+    goto cleanup;
+  }
 
 cleanup:
   if(!limparSocket(socketd) && status.error_code == 0)
