@@ -1,8 +1,10 @@
 #include "server.h"
 
 int main(void) {
-  serverInit(8080);
-  serverListen();
-  serverClose();
+  App app = createApp();
+
+  app.listen(8080);
+
+  app.close();
   return 0;
 } 

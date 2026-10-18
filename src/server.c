@@ -1,24 +1,13 @@
 #include "server.h"
-#include "status.h"
+#include <unistd.h>
 
 typedef struct {
-  int port;
   int socketd;
-  bool initialized;
-} ServerCore;
+} ServerApp;
 
-static ServerCore serverCore = {
-  .port = 0,
-  .socketd = -1,
-  .initialized = false
+static ServerApp serverApp = {
+  .socketd = -1
 };
-
-bool limparSocket(int socketd) {
-  if (socketd < 0)
-    return true;
-
-  return close(socketd) >= 0;
-}
 
 static void reportarErro(const char *message) {
   int error_code = errno;
@@ -29,50 +18,17 @@ static void reportarErro(const char *message) {
     fprintf(stderr, "%s\n", message);
 }
 
-Status creatBufferResponse(
-    char *buffer_res,
-    size_t tamanho,
-    const char *html
-) {
-  Status status = {
-    .has_error = false,
-    .error_code = 0,
-    .message = "Buffer criado"
-  };
-
-  int res = snprintf(
-    buffer_res,
-    tamanho,
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: text/html; charset=utf-8\r\n"
-    "Connection: close\r\n"
-    "\r\n"
-    "%s",
-    html
-  );
-
-  if (res < 0) {
-    status.has_error = true;
-    status.error_code = 0;
-    status.message = "Erro ao criar o buffer de resposta";
-  } else if ((size_t)res >= tamanho) {
-    status.has_error = true;
-    status.error_code = 0;
-    status.message = "Buffer de resposta insuficiente";
-  }
-
-  return status;
+static void closeSocket(int socketd) {
+  if (close(socketd) < 0)
+    fprintf(stderr, "falha ao fechar socket\n");
+  else
+    printf("socket fechado\n");
 }
 
-void serverInit(int port) {
-  serverCore.initialized = false;
-  serverCore.port = port;
-
-  serverCore.socketd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-  if (serverCore.socketd < 0) {
-    reportarErro("Falha ao criar socket");
-    return;
+static int serverListen(int port) {
+  if (serverApp.socketd < 0) {
+    fprintf(stderr, "socket server não inicializado\n");
+    return -1;
   }
 
   struct sockaddr_in ip_porta = {
@@ -81,127 +37,91 @@ void serverInit(int port) {
     .sin_addr.s_addr = htonl(INADDR_LOOPBACK)
   };
 
-  if (bind(serverCore.socketd, (struct sockaddr *)&ip_porta, sizeof(ip_porta)) < 0) {
-    reportarErro("Falha ao fazer bind");
-    goto cleanup;
+  if (bind(serverApp.socketd, (struct sockaddr *)&ip_porta, sizeof(ip_porta)) < 0) {
+    reportarErro("falha ao fazer bind");
+    return -1;
   }
 
-  if (listen(serverCore.socketd, 10) < 0) {
-    reportarErro("Falha ao executar listen");
-    goto cleanup;
+  if (listen(serverApp.socketd, 10) < 0) {
+    reportarErro("falha ao escutar");
+    return -1;
   }
 
-  serverCore.initialized = true;
-  return;
+  printf("Server escutando em http://localhost:%d\n", port);
 
-cleanup:
-  limparSocket(serverCore.socketd);
-  serverCore.socketd = -1;
-}
-
-void serverListen(void) {
-  if (!serverCore.initialized) {
-    fprintf(stderr, "Não é possível aceitar conexões: servidor não inicializado\n");
-    return;
-  }
-
-  printf("Servidor funcionado em http://localhost:%d\n", serverCore.port);
+  char buffer[SIZE_BUFFER] =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "<h1>Hello World</h1>"
+      ;
 
   while (true) {
-    Status status = {
-        .has_error = false,
-        .error_code = 0,
-        .message = "Requisição atendida"
-    };
-
-    char buffer_req[SIZE_BUFFER];
-    char buffer_res[SIZE_BUFFER];
-    const char *html = "<h1>Olá mundo !</h1>";
-
-    int client_socketd = accept(serverCore.socketd, NULL, NULL);
+    int client_socketd = accept(serverApp.socketd, NULL, NULL);
 
     if (client_socketd < 0) {
-        reportarErro("Falha ao aceitar conexão");
-        continue;
+      reportarErro("falha ao aceitar a conexão");
+      continue;
+    } 
+
+    char req[SIZE_BUFFER];
+    int bytes = read(client_socketd, req, sizeof(req));
+    
+    if (bytes < 0) {
+      reportarErro("falha ao ler o request");
+      closeSocket(client_socketd);
+      continue;
     }
 
-    ssize_t bytes_lidos = read(
-        client_socketd,
-        buffer_req,
-        sizeof(buffer_req) - 1
-    );
+    printf("req do cliente:\n%s\n", req);
 
-    if (bytes_lidos < 0) {
-        criarErro(&status, "Falha ao ler requisição");
-        goto cleanup;
-    }
-
-    if (bytes_lidos == 0) {
-        status.has_error = true;
-        status.error_code = 0;
-        status.message = "Cliente encerrou a conexão sem enviar dados";
-        goto cleanup;
-    }
-
-    buffer_req[bytes_lidos] = '\0';
-
-    status = creatBufferResponse(
-        buffer_res,
-        sizeof(buffer_res),
-        html
-    );
-
-    if (status.has_error)
-        goto cleanup;
-
-    size_t total = strlen(buffer_res);
+    size_t total = strlen(buffer);
     size_t enviados = 0;
-
+    
     while (enviados < total) {
       ssize_t bytes = write(
         client_socketd,
-        buffer_res + enviados,
+        buffer + enviados,
         total - enviados
       );
 
       if (bytes < 0) {
-        criarErro(&status, "Falha ao enviar resposta");
-        goto cleanup;
-      }
-
-      if (bytes == 0) {
-        status.has_error = true;
-        status.error_code = 0;
-        status.message = "Não foi possível enviar toda a resposta";
-        goto cleanup;
+        reportarErro("falha ao enviar resposta");
+        break;
       }
 
       enviados += (size_t)bytes;
     }
 
-    status.message = "Requisição atendida";
+    if (enviados == total)
+      printf("resposta enviada\n");
 
-cleanup:
-    if (!limparSocket(client_socketd) && !status.has_error) {
-      status.has_error = true;
-      status.error_code = errno;
-      status.message = "Falha ao fechar socket do cliente";
-    }
-
-    if (status.has_error) {
-      fprintf(stderr, "%s", status.message);
-
-      if (status.error_code != 0) fprintf(stderr, ": %s", strerror(status.error_code));
-
-      fprintf(stderr, "\n");
-    } 
-    else printf("%s\n", status.message);
+    closeSocket(client_socketd);
   }
+
+  return 0;
 }
 
-void serverClose(void) {
-  if (limparSocket(serverCore.socketd))
-    serverCore.socketd = -1;
+static void serverClose(void) {
+  if (serverApp.socketd >= 0) {
+    closeSocket(serverApp.socketd);
+    serverApp.socketd = -1;
+  } else
+    fprintf(stderr, "socket server não inicializado\n");
+}
 
-  serverCore.initialized = false;
+App createApp(void) {
+  serverApp.socketd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+  if (serverApp.socketd < 0) {
+    reportarErro("falha ao criar socket");
+    serverApp.socketd = -1;
+  } else
+    printf("server inicializado\n");
+
+  return (App) {
+    .listen = serverListen,
+    .close = serverClose
+  };
 }

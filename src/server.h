@@ -2,10 +2,12 @@
 #define SERVER_H
 
 #include "defines.h"
-#include "status.h"
 
-void serverInit(int port);
-void serverListen();
-void serverClose();
+typedef struct {
+  int (*listen)(int port);
+  void (*close)(void);
+} App;
+
+App createApp(void);
 
 #endif
