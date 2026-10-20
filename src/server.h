@@ -1,13 +1,10 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include "defines.h"
-
 typedef struct {
-  int (*listen)(int port);
-  void (*close)(void);
-} App;
+  int networkSocket;
+} Server;
 
-App createApp(void);
+Server *createServer(void);
 
 #endif
