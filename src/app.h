@@ -1,16 +1,15 @@
 #ifndef APP_H
 #define APP_H
 
-typedef struct {
-  int status;
-  void (*send)(const char *msg);
-} Response;
+#include "response.h"
+
+typedef void (*Handler)(Response *res);
 
 typedef struct {
-  int (*listen)(int port, void (*callback)(void));
-  int (*get)(const char *router, void (*callback)(Response *res));
+  int (*listen)(int port, void (*cb)(void));
+  void (*get)(const char *path, Handler handler);
 } App;
 
-App *createApp(void);
+extern const App app;
 
 #endif
