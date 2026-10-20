@@ -20,7 +20,7 @@ int serverListen(int port, void (*callback)(void)) {
     if(!networkSocket->getClient(&clientSocket)) goto cleanup;
 
     read(clientSocket, NULL, 0);
-    write(clientSocket, "Hello World\n", 12);
+    // o write rodaria depois desse read
 
     if(!networkSocket->close(clientSocket)) goto cleanup;
     printf("foi eba\n");
@@ -31,9 +31,28 @@ int serverListen(int port, void (*callback)(void)) {
 cleanup:
   networkSocket->closeNetwork();
   return -1;
-} 
+}
 
-static App app = {serverListen};
+void responseSend(const char *msg) {
+  write(clientSocket, msg, strlen(msg));
+}
+
+Response response = {
+  .status = 200,
+  .send = responseSend
+};
+
+
+int appGet(const char *router, void (*callback)(Response *res)) {
+  callback(&response);
+  printf("GET %s\n", router);
+  return 0;
+}
+
+static App app = {
+  .listen = serverListen,
+  .get = appGet
+};
 
 App *createApp(void) {
   return &app;
