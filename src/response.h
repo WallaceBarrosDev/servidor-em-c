@@ -6,6 +6,6 @@ typedef struct {
 } Response;
 
 Response *response_load(void);
-void socketThread(int clientSocket);
+void responseSetFd(int fd);
 
 #endif

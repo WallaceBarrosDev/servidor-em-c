@@ -1,6 +1,5 @@
 #include "response.h"
 
-#include "stdlib.h"
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -9,8 +8,8 @@
 
 static _Thread_local int client_fd = -1;
 
-void socketThread(int clientSocket) {
-  client_fd = clientSocket;
+void responseSetFd(int fd) {
+  client_fd = fd;
 }
 
 static int writeAll(int fd, const char *buf, size_t len) {
@@ -33,8 +32,10 @@ static void responseSend(const char *body) {
   writeAll(client_fd, body, (size_t)strlen(body));
 }
 
+static Response response = {
+  .send = responseSend,
+};
+
 Response *response_load(void) {
-  Response *response = malloc(sizeof *response);
-  response->send = responseSend;
-  return response;
+  return &response;
 }

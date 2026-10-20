@@ -13,9 +13,8 @@ static void helloWorld(Response *res) {
 }
 
 int main(void) {
-    App *app = app_load();
+  App *app = app_load();
 
   app->get("/", helloWorld);
-  
-  app->listen(PORT, onListening);
+  return app->listen(PORT, onListening) < 0 ? 1 : 0;
 }
