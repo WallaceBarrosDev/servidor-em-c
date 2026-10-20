@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 typedef struct {
-  bool (*readPath)(int fd, char *buf, size_t n); // consome TODOS os headers do request; buf recebe só o path
+  bool (*readPath)(int fd, char *buf, size_t n);
 } Request;
 
 extern const Request request;

@@ -10,6 +10,6 @@ typedef struct {
   Handler (*lookup)(const char *path);
 } Router;
 
-extern const Router router;
+Router *router_load(void);
 
 #endif

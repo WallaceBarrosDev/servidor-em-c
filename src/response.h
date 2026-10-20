@@ -2,11 +2,10 @@
 #define RESPONSE_H
 
 typedef struct {
-  void (*send)(const char *body);
-  void (*send_error)(int status, const char *reason);
+  void (*send)(const char *msg);
 } Response;
 
-extern const Response response;
-void responseUseFd(int fd); // seta o fd thread-local (-1 limpa)
+Response *response_load(void);
+void socketThread(int clientSocket);
 
 #endif

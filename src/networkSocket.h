@@ -13,6 +13,6 @@ typedef struct {
   bool (*close)(void);            // fecha fd interno do servidor e o reseta para -1
 } NetworkSocket;
 
-extern const NetworkSocket networkSocket;
+NetworkSocket *networkSocket_load(void);
 
 #endif

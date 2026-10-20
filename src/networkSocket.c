@@ -1,5 +1,5 @@
 #include "networkSocket.h"
-
+#include <stdlib.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -77,12 +77,16 @@ static bool networkSocketClose(void) {
   return true;
 }
 
-const NetworkSocket networkSocket = {
-  .create = networkSocketCreate,
-  .reuseAddr = networkSocketReuseAddr,
-  .bind = networkSocketBind,
-  .listen = networkSocketListen,
-  .accept = networkSocketAccept,
-  .closeClient = networkSocketCloseClient,
-  .close = networkSocketClose
-};
+NetworkSocket *networkSocket_load(void) {
+  NetworkSocket *networkSocket = malloc(sizeof *networkSocket);
+
+  networkSocket->create = networkSocketCreate;
+  networkSocket->reuseAddr = networkSocketReuseAddr;
+  networkSocket->bind = networkSocketBind;
+  networkSocket->listen = networkSocketListen;
+  networkSocket->accept = networkSocketAccept;
+  networkSocket->closeClient = networkSocketCloseClient;
+  networkSocket->close = networkSocketClose;
+
+  return networkSocket;
+}

@@ -1,5 +1,6 @@
 #include "router.h"
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -32,4 +33,9 @@ static Handler routeLookup(const char *path) {
   return NULL;
 }
 
-const Router router = { .add = routeAdd, .lookup = routeLookup };
+Router *router_load(void) {
+  Router *router = malloc(sizeof *router);
+  router->add = routeAdd;
+  router->lookup = routeLookup;
+  return router;
+}

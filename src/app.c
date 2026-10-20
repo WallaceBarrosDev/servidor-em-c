@@ -1,42 +1,64 @@
 #include "app.h"
 #include "networkSocket.h"
 #include "request.h"
+#include "response.h"
 #include "router.h"
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <signal.h>
 
-static int serverListen(int port, void (*cb)(void)) {
-  signal(SIGPIPE, SIG_IGN);
-  if (!networkSocket.create()) return -1;
-  networkSocket.reuseAddr();
-  if (!networkSocket.bind(port) || !networkSocket.listen(10)) {
-    networkSocket.close();
-    return -1;
-  }
-  if (cb) cb();
-
-  for (;;) {
+static void clientLoop(NetworkSocket *networkSocket, Router *router, Response *res) {
+  while(true) {
     int client_fd = -1;
-    if (!networkSocket.accept(&client_fd)) continue; // accept interno já faz perror; erro não derruba o servidor
-    responseUseFd(client_fd);
+    if (!networkSocket->accept(&client_fd)) continue;
+    socketThread(client_fd);
 
     char path[256];
     Handler handler = request.readPath(client_fd, path, sizeof path)
-                    ? router.lookup(path)
+                    ? router->lookup(path)
                     : NULL;
 
-    Response res = response;            // cópia de 8 bytes na stack, por request
-    if (handler) handler(&res);
-    else res.send_error(404, "Not Found");
+    if (handler) { 
+      handler(res);
+      printf("GET %s 200 ok\n", path);
+    }
+    else {
+      res->send("pagina não encontrada\n");
+      printf("GET %s 404 not found\n", path);
+    }
 
-    networkSocket.closeClient(client_fd);
-    responseUseFd(-1);
+    networkSocket->closeClient(client_fd);
+    socketThread(-1);
   }
-  /* inalcançável; loop infinito do servidor */
+}
+
+static void serverListen(int port, void (*callback)(void)) {
+  signal(SIGPIPE, SIG_IGN);
+
+  NetworkSocket *networkSocket = networkSocket_load();
+
+  if (!networkSocket->create()) return;
+  networkSocket->reuseAddr();
+  
+  if (!networkSocket->bind(port) || !networkSocket->listen(10)) {
+    networkSocket->close();
+    return;
+  }
+
+  if (callback) callback();
+
+  clientLoop(networkSocket, router_load(), response_load());
 }
 
 static void appGet(const char *path, Handler handler) {
-  router.add(path, handler);
+  Router *router = router_load();
+  router->add(path, handler);
 }
 
-const App app = { .listen = serverListen, .get = appGet };
+App *app_load(void) {
+  App *app = malloc(sizeof(App));
+  app->listen = serverListen;
+  app->get = appGet;
+  return app;
+}
