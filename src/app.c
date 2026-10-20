@@ -1,59 +1,42 @@
 #include "app.h"
 #include "networkSocket.h"
-#include <netinet/in.h>
-#include <unistd.h>
-#include <stdio.h>
+#include "request.h"
+#include "router.h"
 
-int serverListen(int port, void (*callback)(void)) { 
-  NetworkSocket *networkSocket = networkSocketInit();
+#include <signal.h>
 
-  if(!networkSocket->create()) return -1;
-  networkSocket->clenPort();
-
-  if(!networkSocket->bind(port)) goto cleanup;
-
-  if(!networkSocket->listen(10)) goto cleanup;
-  callback();
-
-  while(true) {
-    int clientSocket = -1;
-    if(!networkSocket->getClient(&clientSocket)) goto cleanup;
-
-    read(clientSocket, NULL, 0);
-    // o write rodaria depois desse read
-
-    if(!networkSocket->close(clientSocket)) goto cleanup;
-    printf("foi eba\n");
+static int serverListen(int port, void (*cb)(void)) {
+  signal(SIGPIPE, SIG_IGN);
+  if (!networkSocket.create()) return -1;
+  networkSocket.reuseAddr();
+  if (!networkSocket.bind(port) || !networkSocket.listen(10)) {
+    networkSocket.close();
+    return -1;
   }
+  if (cb) cb();
 
-  return networkSocket->closeNetwork();
+  for (;;) {
+    int client_fd = -1;
+    if (!networkSocket.accept(&client_fd)) continue; // accept interno já faz perror; erro não derruba o servidor
+    responseUseFd(client_fd);
 
-cleanup:
-  networkSocket->closeNetwork();
-  return -1;
+    char path[256];
+    Handler handler = request.readPath(client_fd, path, sizeof path)
+                    ? router.lookup(path)
+                    : NULL;
+
+    Response res = response;            // cópia de 8 bytes na stack, por request
+    if (handler) handler(&res);
+    else res.send_error(404, "Not Found");
+
+    networkSocket.closeClient(client_fd);
+    responseUseFd(-1);
+  }
+  /* inalcançável; loop infinito do servidor */
 }
 
-void responseSend(const char *msg) {
-  write(clientSocket, msg, strlen(msg));
+static void appGet(const char *path, Handler handler) {
+  router.add(path, handler);
 }
 
-Response response = {
-  .status = 200,
-  .send = responseSend
-};
-
-
-int appGet(const char *router, void (*callback)(Response *res)) {
-  callback(&response);
-  printf("GET %s\n", router);
-  return 0;
-}
-
-static App app = {
-  .listen = serverListen,
-  .get = appGet
-};
-
-App *createApp(void) {
-  return &app;
-}
+const App app = { .listen = serverListen, .get = appGet };
