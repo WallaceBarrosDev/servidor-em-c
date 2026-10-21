@@ -1,12 +1,116 @@
 <!DOCTYPE html>
-<html lang="pt-br">
-  <head>
+<html lang="pt-BR" class="h-full">
+<head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Pagina inicial</title>
-  </head>
-  <body>
-    <h1>Ola</h1>
-    <p>bem vindo a pagina inicial</p>
-  </body>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTMX &bull; Requisição Simples</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['Cormorant Garamond', 'Georgia', 'serif'],
+                        sans: ['Plus Jakarta Sans', '-apple-system', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        paper: '#FBF9F5',
+                        ink: '#1C1917',
+                        'ink-muted': '#78716C',
+                        terracotta: '#C85A32',
+                        'line-subtle': '#E7E5E4',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <!-- HTMX CDN -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <style>
+        body {
+            background-color: #FBF9F5;
+            color: #1C1917;
+        }
+
+        /* Animação sutil na troca de conteúdo pelo HTMX */
+        .htmx-swapping {
+            opacity: 0;
+            transition: opacity 150ms ease-out;
+        }
+        .htmx-settling {
+            opacity: 0;
+        }
+        .htmx-added {
+            opacity: 1;
+            transition: opacity 200ms ease-in;
+        }
+
+        /* Indicador de carregamento */
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-request .htmx-indicator,
+        .htmx-request.htmx-indicator {
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="min-h-full font-sans antialiased flex flex-col justify-center px-6 py-12 selection:bg-terracotta selection:text-paper">
+
+    <main class="w-full max-w-lg mx-auto space-y-12">
+        
+        <!-- Cabeçalho Ultra Minimalista -->
+        <header class="space-y-3">
+            <p class="text-xs font-mono uppercase tracking-widest text-ink-muted">Conexão HTMX</p>
+            <h1 class="font-serif text-3xl sm:text-4xl font-normal text-ink leading-tight">
+                Carregamento Dinâmico
+            </h1>
+            <p class="text-sm text-ink-muted font-light leading-relaxed">
+                Clique no acionador abaixo para disparar uma requisição <code class="font-mono text-xs bg-line-subtle/50 px-1.5 py-0.5 text-ink">GET /api</code> e substituir a região marcada com a resposta do servidor.
+            </p>
+        </header>
+
+        <!-- Área de Interação Principal -->
+        <section class="space-y-6 pt-4 border-t border-line-subtle">
+            
+            <!-- Botão de Disparo -->
+            <div class="flex items-center gap-4">
+                <button hx-get="/api"
+                        hx-target="#resultado"
+                        hx-swap="innerHTML"
+                        hx-indicator="#loader"
+                        class="px-5 py-2.5 border border-ink text-ink hover:bg-ink hover:text-paper text-xs font-mono uppercase tracking-widest transition-all cursor-pointer">
+                    Carregar Componente
+                </button>
+
+                <span id="loader" class="htmx-indicator text-xs font-mono text-terracotta animate-pulse">
+                    buscando /api...
+                </span>
+            </div>
+
+            <!-- Alvo do HTMX -->
+            <ul id="resultado" class="min-h-[100px] p-6 border border-dashed border-ink/20 text-xs font-mono text-ink-muted">
+                <span>[ O conteúdo retornado de /api aparecerá aqui ]</span>
+            </ul>
+
+        </section>
+
+        <!-- Rodapé Discreto -->
+        <footer class="pt-8 text-[11px] font-mono text-ink-muted/70">
+            <code>hx-get="/api" hx-target="#resultado" hx-swap="innerHTML"</code>
+        </footer>
+
+    </main>
+
+</body>
 </html>
