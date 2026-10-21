@@ -53,12 +53,12 @@ static void responseSendFile(const char *path) {
   char complitePath[SIZE];
   snprintf(complitePath, SIZE, "%s/%s", internalResponse.file, path);
 
-  char *html = fileHelper_load()->readFile(complitePath);
+  char *response_http = fileHelper_load()->readFile(complitePath);
 
-  writeAll(client_fd, html, (size_t)strlen(html));
-  printf("tamanho do arquivo em byts: %d\n", (int)strlen(html));
+  writeAll(client_fd, response_http, (size_t)strlen(response_http));
+  printf("tamanho do arquivo em byts: %d\n", (int)strlen(response_http));
 
-  free(html);
+  free(response_http);
 }
 
 static Response response = {
