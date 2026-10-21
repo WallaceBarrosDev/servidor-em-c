@@ -9,12 +9,14 @@ static void onListening(void) {
 }
 
 static void helloWorld(Response *res) {
-  res->send("Hello World !\n");
+  res->sendFile("index.html");
 }
 
 int main(void) {
   App *app = app_load();
+  app->use(USE_STATIC, "public");
 
   app->get("/", helloWorld);
-  return app->listen(PORT, onListening) < 0 ? 1 : 0;
+
+  app->listen(PORT, onListening);
 }

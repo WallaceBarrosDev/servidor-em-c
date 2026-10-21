@@ -8,6 +8,7 @@ typedef void (*Handler)(Response *res);
 typedef struct {
   int (*listen)(int port, void (*cb)(void));
   void (*get)(const char *path, Handler handler);
+  void (*use)(UseOptions option, const char *file);
 } App;
 
 App *app_load(void);

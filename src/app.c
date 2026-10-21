@@ -1,17 +1,16 @@
 #include "app.h"
 #include "networkSocket.h"
 #include "request.h"
-#include "response.h"
 #include "router.h"
 
 #include <stdio.h>
 #include <signal.h>
 
-static void clientLoop(NetworkSocket *networkSocket, Router *router, Response *res) {
+static void clientLoop(NetworkSocket *networkSocket, Router *router, Response *res, InternalResponse *internalRes) {
   while(true) {
     int client_fd = -1;
     if (!networkSocket->accept(&client_fd)) continue;
-    responseSetFd(client_fd);
+    internalRes->setFd(client_fd);
 
     char path[256];
     Handler handler = request.readPath(client_fd, path, sizeof path)
@@ -28,7 +27,7 @@ static void clientLoop(NetworkSocket *networkSocket, Router *router, Response *r
     }
 
     networkSocket->closeClient(client_fd);
-    responseSetFd(-1);
+    internalRes->setFd(-1); 
   }
 }
 
@@ -47,7 +46,7 @@ static int serverListen(int port, void (*callback)(void)) {
 
   if (callback) callback();
 
-  clientLoop(networkSocket, router_load(), response_load());
+  clientLoop(networkSocket, router_load(), response_load(), internalResponse_load());
   return 0;
 }
 
@@ -55,9 +54,22 @@ static void appGet(const char *path, Handler handler) {
   router_load()->add(path, handler);
 }
 
+static void appUse(UseOptions option, const char *file) {
+  switch (option) {
+    case USE_STATIC:
+      internalResponse_load()->isStatic = true;
+      internalResponse_load()->file = file;
+      break;
+    default:
+      printf("use: opção inválida\n");
+      break;
+  }
+}
+
 static App app = {
   .listen = serverListen,
-  .get = appGet
+  .get = appGet,
+  .use = appUse,
 };
 
 App *app_load(void) {
