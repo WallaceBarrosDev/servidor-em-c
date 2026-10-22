@@ -18,7 +18,9 @@ bool socketService_create(void) {
     fprintf(stderr, "error: %s\n", strerror(errno));
     return false;
   }
-
+  int opt = 1;
+  setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+  
   return true;
 }
 

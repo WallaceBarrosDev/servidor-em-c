@@ -1,6 +1,6 @@
-#include <stdio.h>
-
 #include "webserver.h"
+
+#include <stdio.h>
 
 #define PORT 8080
 
@@ -10,6 +10,5 @@ int callback(void) {
 
 int main(void) {
     wbs_listener(PORT, callback);
-
     return 0;
 }
